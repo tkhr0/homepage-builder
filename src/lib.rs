@@ -1,100 +1,61 @@
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
+use yew::web_sys::HtmlInputElement as InputElement;
 
-struct Model {}
-
+#[derive(PartialEq, Clone)]
 struct Paragraph {
     value: String,
     style: Style,
 }
 
-struct SettingPane {
-    link: ComponentLink<Self>,
-    value: String,
-}
-
-#[derive(Default)]
+#[derive(Default, PartialEq, Clone)]
 struct Style {
     background_color: Option<String>,
 }
 
-enum Msg {
-    Update(String),
+#[derive(Properties, PartialEq)]
+struct ParagraphProps {
+    paragraph: Paragraph,
 }
 
-impl Component for Paragraph {
-    type Message = Msg;
-    type Properties = ();
+#[derive(Properties, PartialEq)]
+struct SettingPaneProps {
+    oninput: Callback<Option<String>>,
+}
 
-    fn create(_: Self::Properties, _link: ComponentLink<Self>) -> Self {
-        Self {
-            value: "paragraph".to_string(),
-            style: Style::default(),
-        }
-    }
-
-    fn update(&mut self, _msg: Self::Message) -> ShouldRender {
-        true
-    }
-
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        // Should only return "true" if new properties are different to
-        // previously received properties.
-        // This component has no properties so we will always return "false".
-        false
-    }
-
-    fn view(&self) -> Html {
-        html! {
-            <p style=self.style()>{&self.value}</p>
-        }
+#[function_component(ParagraphComponent)]
+fn paragraph(ParagraphProps { paragraph }: &ParagraphProps) -> Html {
+    html! {
+        <p style={paragraph.style.to_css()}>{paragraph.value.as_str()}</p>
     }
 }
 
-impl Paragraph {
-    fn style(&self) -> String {
-        self.style.to_css()
-    }
-}
+#[function_component(SettingPane)]
+fn setting_pane(SettingPaneProps { oninput }: &SettingPaneProps) -> Html {
+    let oninput_value = {
+        let oninput = oninput.clone();
 
-impl Component for SettingPane {
-    type Message = Msg;
-    type Properties = ();
+        Callback::from(move |event: InputEvent| {
+            let input: InputElement = event.target_unchecked_into();
+            let value = input.value();
 
-    fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
-        Self {
-            link,
-            value: "foo".to_string(),
-        }
-    }
+            if value.is_empty() {
+                oninput.emit(None)
+            } else {
+                oninput.emit(Some(value))
+            }
+        })
+    };
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
-        match msg {
-            Msg::Update(value) => self.value = value,
-        }
-
-        true
-    }
-
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        // Should only return "true" if new properties are different to
-        // previously received properties.
-        // This component has no properties so we will always return "false".
-        false
-    }
-
-    fn view(&self) -> Html {
-        html! {
-            <div>
-                <section>
-                    <p>{ "background color" }</p>
-                    <input type="text"
-                           value=self.value.clone()
-                           oninput=self.link.callback(|e: InputData| Msg::Update(e.value))/>
-                    <p>{&self.value}</p>
-                </section>
-            </div>
-        }
+    html! {
+        <div>
+            <section>
+                <p>{ "background color" }</p>
+                <input type="text"
+                       oninput={oninput_value.clone()} />
+                <p>{ "value" }</p>
+            </section>
+        </div>
     }
 }
 
@@ -110,37 +71,35 @@ impl Style {
     }
 }
 
-impl Component for Model {
-    type Message = Msg;
-    type Properties = ();
-    fn create(_: Self::Properties, _link: ComponentLink<Self>) -> Self {
-        Self {}
-    }
+#[function_component(App)]
+fn app() -> Html {
+    let paragraph = use_state(|| Paragraph {
+        value: "hoge".to_string(),
+        style: Style {
+            background_color: Some("#222222".into()),
+        },
+    });
 
-    fn update(&mut self, _msg: Self::Message) -> ShouldRender {
-        true
-    }
+    let oninput = {
+        let paragraph = paragraph.clone();
+        Callback::from(move |background_color: Option<String>| {
+            let mut new = (*paragraph).clone();
+            new.style.background_color = background_color;
+            paragraph.set(new);
+        })
+    };
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        // Should only return "true" if new properties are different to
-        // previously received properties.
-        // This component has no properties so we will always return "false".
-        false
-    }
-
-    fn view(&self) -> Html {
-        html! {
+    html! {
+        <div>
             <div>
-                <div>
-                    <Paragraph/>
-                </div>
-                <SettingPane/>
+                <ParagraphComponent paragraph={(*paragraph).clone()}/>
             </div>
-        }
+            <SettingPane oninput={oninput} />
+        </div>
     }
 }
 
 #[wasm_bindgen(start)]
 pub fn run_app() {
-    App::<Model>::new().mount_to_body();
+    yew::start_app::<App>();
 }
