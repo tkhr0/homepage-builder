@@ -8,14 +8,27 @@ struct Paragraph {
     style: Style,
 }
 
+#[derive(PartialEq, Clone)]
+struct Anchor {
+    text: String,
+    href: String,
+    style: Style,
+}
+
 #[derive(Default, PartialEq, Clone)]
 struct Style {
+    color: Option<String>,
     background_color: Option<String>,
 }
 
 #[derive(Properties, PartialEq)]
 struct ParagraphProps {
     paragraph: Paragraph,
+}
+
+#[derive(Properties, PartialEq)]
+struct AnchorProps {
+    anchor: Anchor,
 }
 
 #[derive(Properties, PartialEq)]
@@ -27,6 +40,13 @@ struct SettingPaneProps {
 fn paragraph(ParagraphProps { paragraph }: &ParagraphProps) -> Html {
     html! {
         <p style={paragraph.style.to_css()}>{paragraph.value.as_str()}</p>
+    }
+}
+
+#[function_component(AnchorComponent)]
+fn anchor(AnchorProps { anchor }: &AnchorProps) -> Html {
+    html! {
+        <a href={anchor.href.clone()} style={anchor.style.to_css()}>{anchor.text.as_str()}</a>
     }
 }
 
@@ -76,7 +96,16 @@ fn app() -> Html {
     let paragraph = use_state(|| Paragraph {
         value: "hoge".to_string(),
         style: Style {
-            background_color: Some("#222222".into()),
+            background_color: Some("#666666".into()),
+            color: Some("#222222".into()),
+        },
+    });
+    let anchor = use_state(|| Anchor {
+        text: "hoge".to_string(),
+        href: "https://www.google.co.jp".to_string(),
+        style: Style {
+            background_color: Some("#666666".into()),
+            color: Some("#222222".into()),
         },
     });
 
@@ -93,6 +122,9 @@ fn app() -> Html {
         <div>
             <div>
                 <ParagraphComponent paragraph={(*paragraph).clone()}/>
+            </div>
+            <div>
+                <AnchorComponent anchor={(*anchor).clone()}/>
             </div>
             <SettingPane oninput={oninput} />
         </div>
