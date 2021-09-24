@@ -5,9 +5,6 @@ use yew::web_sys::HtmlInputElement as InputElement;
 
 trait Componentable: PartialEq {
     fn component_name(&self) -> &'static str;
-}
-
-trait ComponentPropable: PartialEq {
     fn element_data(&self) -> Box<dyn ElementData>;
 }
 
@@ -66,11 +63,19 @@ impl Componentable for Paragraph {
     fn component_name(&self) -> &'static str {
         "paragraph"
     }
+
+    fn element_data(&self) -> Box<dyn ElementData> {
+        Box::new(self.clone())
+    }
 }
 
 impl Componentable for Anchor {
     fn component_name(&self) -> &'static str {
         "anchor"
+    }
+
+    fn element_data(&self) -> Box<dyn ElementData> {
+        Box::new(self.clone())
     }
 }
 
@@ -82,17 +87,6 @@ struct ParagraphProps {
 #[derive(Properties, PartialEq)]
 struct AnchorProps {
     anchor: Anchor,
-}
-
-impl ComponentPropable for ParagraphProps {
-    fn element_data(&self) -> Box<dyn ElementData> {
-        Box::new(self.paragraph.clone())
-    }
-}
-impl ComponentPropable for AnchorProps {
-    fn element_data(&self) -> Box<dyn ElementData> {
-        Box::new(self.anchor.clone())
-    }
 }
 
 impl From<Box<dyn ElementData>> for Paragraph {
@@ -114,14 +108,38 @@ impl From<Box<dyn ElementData>> for Anchor {
     }
 }
 
+struct CustomComponent {}
+
+struct Msg {}
+
+impl Component for CustomComponent {
+    //Box<dyn Componentable> {
+    type Message = Msg;
+    type Properties = (); //CustomComponentProps<T>;
+
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self {}
+    }
+
+    fn update(&mut self, _ctx: &Context<Self>, _msg: Self::Message) -> bool {
+        true
+    }
+
+    fn changed(&mut self, ctx: &Context<Self>) -> bool {
+        false
+    }
+
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        html! {}
+    }
+}
+
 #[derive(Properties, PartialEq)]
-struct CustomComponentProps<T, U>
+struct CustomComponentProps<T>
 where
     T: Componentable,
-    U: ComponentPropable,
 {
     component: T,
-    component_props: U,
 }
 
 #[derive(Properties, PartialEq)]
@@ -143,27 +161,25 @@ fn anchor(AnchorProps { anchor }: &AnchorProps) -> Html {
     }
 }
 
-#[function_component(CustomComponent)]
-fn custom_component<T, U>(
-    CustomComponentProps {
-        component,
-        component_props,
-    }: &CustomComponentProps<T, U>,
-) -> Html
-where
-    T: Componentable,
-    U: ComponentPropable,
-{
-    match component.component_name() {
-        "paragraph" => paragraph(&ParagraphProps {
-            paragraph: component_props.element_data().into(),
-        }),
-        "anchor" => anchor(&AnchorProps {
-            anchor: component_props.element_data().into(),
-        }),
-        _ => html! {},
-    }
-}
+// #[function_component(CustomComponent)]
+// fn custom_component<T>(
+//     CustomComponentProps {
+//         component,
+//     }: &CustomComponentProps<T>,
+// ) -> Html
+// where
+//     T: Componentable,
+// {
+//     match component.component_name() {
+//         "paragraph" => paragraph(&ParagraphProps {
+//             paragraph: component.element_data().into(),
+//         }),
+//         "anchor" => anchor(&AnchorProps {
+//             anchor: component.element_data().into(),
+//         }),
+//         _ => html! {},
+//     }
+// }
 
 #[function_component(SettingPane)]
 fn setting_pane(SettingPaneProps { oninput }: &SettingPaneProps) -> Html {
@@ -201,6 +217,9 @@ impl Style {
         if let Some(background_color) = &self.background_color {
             css.push_str(format!("background-color: {};", background_color).as_str());
         };
+        if let Some(color) = &self.color {
+            css.push_str(format!("color: {};", color).as_str());
+        }
 
         css
     }
@@ -236,15 +255,7 @@ fn app() -> Html {
 
     html! {
         <div>
-            // <div>
-            //     <ParagraphComponent paragraph={(*paragraph).clone()}/>
-            // </div>
-            // <div>
-            //     <AnchorComponent anchor={(*anchor).clone()}/>
-            // </div>
-            // TODO: component がいらない. component_props に含まれている
-            <div><CustomComponent component_props={paragraph}/></div>
-            <div><CustomComponent /></div>
+            <div><CustomComponent elements={elements}/></div>
             <SettingPane oninput={oninput} />
         </div>
     }

@@ -1,0 +1,5 @@
+- CustomComponent
+  - CustomComponentProps
+    - Componentable == Paragraph, Anchor
+    - ComponentPropable
+      - element_data -> ElementData
