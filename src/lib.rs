@@ -1,18 +1,38 @@
+use rand;
 use std::convert::From;
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 use yew::web_sys::HtmlInputElement as InputElement;
 
+type Id = u8;
+
 trait Componentable: PartialEq {
     fn component_name(&self) -> &'static str;
-    fn element_data(&self) -> Box<dyn ElementData>;
+    fn element_data(&self) -> ElementData;
 }
 
-trait ElementData {
-    fn value(&self) -> &String;
-    fn style(&self) -> &Style;
-    fn href(&self) -> Option<String> {
-        None
+trait RawElementData {
+    fn id(&self) -> &Id;
+    fn render_html(&self) -> Html;
+}
+
+fn gen_id() -> Id {
+    rand::random()
+}
+
+struct ElementData {
+    data: Box<dyn RawElementData>,
+}
+
+impl ElementData {
+    fn render(&self) -> Html {
+        self.data.render_html()
+    }
+}
+
+impl PartialEq<ElementData> for ElementData {
+    fn eq(&self, other: &Self) -> bool {
+        self.data.id() == other.data.id()
     }
 }
 
@@ -20,15 +40,20 @@ trait ElementData {
 struct Paragraph {
     value: String,
     style: Style,
+    id: Id,
 }
 
-impl ElementData for Paragraph {
-    fn value(&self) -> &String {
-        &self.value
+impl RawElementData for Paragraph {
+    fn id(&self) -> &Id {
+        &self.id
     }
 
-    fn style(&self) -> &Style {
-        &self.style
+    fn render_html(&self) -> Html {
+        html! {
+            <p style={self.style.to_css()}>
+                {self.value.clone()}
+            </p>
+        }
     }
 }
 
@@ -37,19 +62,20 @@ struct Anchor {
     text: String,
     href: String,
     style: Style,
+    id: Id,
 }
 
-impl ElementData for Anchor {
-    fn value(&self) -> &String {
-        &self.text
+impl RawElementData for Anchor {
+    fn id(&self) -> &Id {
+        &self.id
     }
 
-    fn style(&self) -> &Style {
-        &self.style
-    }
-
-    fn href(&self) -> Option<String> {
-        Some(self.href.clone())
+    fn render_html(&self) -> Html {
+        html! {
+            <a href={self.href.clone()} style={self.style.to_css()}>
+                {self.text.clone()}
+            </a>
+        }
     }
 }
 
@@ -64,8 +90,10 @@ impl Componentable for Paragraph {
         "paragraph"
     }
 
-    fn element_data(&self) -> Box<dyn ElementData> {
-        Box::new(self.clone())
+    fn element_data(&self) -> ElementData {
+        ElementData {
+            data: Box::new(self.clone()),
+        }
     }
 }
 
@@ -74,36 +102,25 @@ impl Componentable for Anchor {
         "anchor"
     }
 
-    fn element_data(&self) -> Box<dyn ElementData> {
-        Box::new(self.clone())
-    }
-}
-
-#[derive(Properties, PartialEq)]
-struct ParagraphProps {
-    paragraph: Paragraph,
-}
-
-#[derive(Properties, PartialEq)]
-struct AnchorProps {
-    anchor: Anchor,
-}
-
-impl From<Box<dyn ElementData>> for Paragraph {
-    fn from(prop: Box<dyn ElementData>) -> Self {
-        Self {
-            value: (*prop.value()).clone(),
-            style: (*prop.style()).clone(),
+    fn element_data(&self) -> ElementData {
+        ElementData {
+            data: Box::new(self.clone()),
         }
     }
 }
 
-impl From<Box<dyn ElementData>> for Anchor {
-    fn from(prop: Box<dyn ElementData>) -> Self {
+impl From<Paragraph> for ElementData {
+    fn from(prop: Paragraph) -> Self {
         Self {
-            text: (*prop.value()).clone(),
-            href: prop.href().clone().or(Some("".to_string())).unwrap(),
-            style: (*prop.style()).clone(),
+            data: Box::new(prop),
+        }
+    }
+}
+
+impl From<Anchor> for ElementData {
+    fn from(prop: Anchor) -> Self {
+        Self {
+            data: Box::new(prop),
         }
     }
 }
@@ -112,10 +129,14 @@ struct CustomComponent {}
 
 struct Msg {}
 
+#[derive(Properties, PartialEq)]
+struct CustomComponentProps {
+    elements: Vec<ElementData>,
+}
+
 impl Component for CustomComponent {
-    //Box<dyn Componentable> {
     type Message = Msg;
-    type Properties = (); //CustomComponentProps<T>;
+    type Properties = CustomComponentProps;
 
     fn create(_ctx: &Context<Self>) -> Self {
         Self {}
@@ -125,61 +146,23 @@ impl Component for CustomComponent {
         true
     }
 
-    fn changed(&mut self, ctx: &Context<Self>) -> bool {
+    fn changed(&mut self, _ctx: &Context<Self>) -> bool {
         false
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        html! {}
+        html! {
+            <>
+                {ctx.props().elements.iter().map(|element| element.render()).collect::<Html>()}
+            </>
+        }
     }
-}
-
-#[derive(Properties, PartialEq)]
-struct CustomComponentProps<T>
-where
-    T: Componentable,
-{
-    component: T,
 }
 
 #[derive(Properties, PartialEq)]
 struct SettingPaneProps {
     oninput: Callback<Option<String>>,
 }
-
-// #[function_component(ParagraphComponent)]
-fn paragraph(ParagraphProps { paragraph }: &ParagraphProps) -> Html {
-    html! {
-        <p style={paragraph.style.to_css()}>{paragraph.value.as_str()}</p>
-    }
-}
-
-// #[function_component(AnchorComponent)]
-fn anchor(AnchorProps { anchor }: &AnchorProps) -> Html {
-    html! {
-        <a href={anchor.href.clone()} style={anchor.style.to_css()}>{anchor.text.as_str()}</a>
-    }
-}
-
-// #[function_component(CustomComponent)]
-// fn custom_component<T>(
-//     CustomComponentProps {
-//         component,
-//     }: &CustomComponentProps<T>,
-// ) -> Html
-// where
-//     T: Componentable,
-// {
-//     match component.component_name() {
-//         "paragraph" => paragraph(&ParagraphProps {
-//             paragraph: component.element_data().into(),
-//         }),
-//         "anchor" => anchor(&AnchorProps {
-//             anchor: component.element_data().into(),
-//         }),
-//         _ => html! {},
-//     }
-// }
 
 #[function_component(SettingPane)]
 fn setting_pane(SettingPaneProps { oninput }: &SettingPaneProps) -> Html {
@@ -227,31 +210,36 @@ impl Style {
 
 #[function_component(App)]
 fn app() -> Html {
-    let paragraph = use_state(|| Paragraph {
+    let paragraph = Paragraph {
         value: "hoge".to_string(),
         style: Style {
             background_color: Some("#666666".into()),
             color: Some("#222222".into()),
         },
-    });
+        id: gen_id(),
+    };
 
-    let anchor = use_state(|| Anchor {
+    let anchor = Anchor {
         text: "hoge".to_string(),
         href: "https://www.google.co.jp".to_string(),
         style: Style {
             background_color: Some("#666666".into()),
             color: Some("#222222".into()),
         },
-    });
-
-    let oninput = {
-        let paragraph = paragraph.clone();
-        Callback::from(move |background_color: Option<String>| {
-            let mut new = (*paragraph).clone();
-            new.style.background_color = background_color;
-            paragraph.set(new);
-        })
+        id: gen_id(),
     };
+
+    // let oninput = {
+    //     let paragraph = paragraph.clone();
+    //     Callback::from(move |background_color: Option<String>| {
+    //         let mut new = (*paragraph).clone();
+    //         new.style.background_color = background_color;
+    //         paragraph.set(new);
+    //     })
+    // };
+    let oninput = Callback::from(move |_| {});
+
+    let elements: Vec<ElementData> = vec![paragraph.into(), anchor.into()];
 
     html! {
         <div>
